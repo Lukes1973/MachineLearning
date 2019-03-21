@@ -1,11 +1,11 @@
 def loadExData():
-    return [[1, 1, 1, 0, 0],
-           [2, 2, 2, 0, 0],
-           [1, 1, 1, 0, 0],
-           [5, 5, 5, 0, 0],
-           [1, 1, 0, 2, 2],
-           [0, 0, 0, 3, 3],
-           [0, 0, 0, 1, 1]]
+    return [[4, 4, 0, 2, 2],
+        [4, 0, 0, 3, 3],
+        [4, 0, 0, 1, 1],
+        [1, 1, 1, 2, 0],
+        [2, 2, 2, 0, 0],
+        [1, 1, 1, 0, 0],
+        [5, 5, 5, 0, 0]]
 
 from numpy import *
 from numpy import linalg as la
@@ -26,7 +26,7 @@ def standEst(dataMat,user,simMeas,item):
 	n = shape(dataMat)[1]
 	simTotal = 0.0 ;ratSimTotal = 0.0
 	for j in range(n):
-		userRating = dataMat[user,i]
+		userRating = dataMat[user,j]
 		if userRating == 0: continue
 		overLap = nonzero(logical_and(dataMat[:,item].A>0,dataMat[:,j].A>0))[0]
 
@@ -39,7 +39,7 @@ def standEst(dataMat,user,simMeas,item):
 	else:return ratSimTotal/simTotal
 
 
-def recommend(dataMat,user,N=3,simMeas = cosSim,estMethod  =standEst):
+def recommend(dataMat,user,N=3,simMeas = cosSim,estMethod  = standEst):
 	unrateItems = nonzero(dataMat[user,:].A==0)[1]
 	if len(unrateItems) == 0:return 'you rated everything'
 	itemScores = []
