@@ -25,9 +25,7 @@ def replaceNanWithMean():
     for i in range(numFeat):
         meanVal = mean(dataMat[nonzero(~isnan(dataMat[:,i].A))[0],i])
         dataMat[nonzero(isnan(dataMat[:,i].A))[0],i] = meanVal
-
     return dataMat
-
 
 
 
