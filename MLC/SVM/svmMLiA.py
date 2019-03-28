@@ -19,4 +19,4 @@ def clipAlpha(aj,H,L):
     if L > aj:
         aj = L
     return aj
-def
+
