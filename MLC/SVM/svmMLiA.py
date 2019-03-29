@@ -24,6 +24,7 @@ def clipAlpha(aj,H,L):
     return aj
 
 #simple version of SMO
+
 def smoSimple(dataMatIn,classLabels,C,toler,maxIter):
     dataMatrix = mat(dataMatIn);labelMat = mat(classLabels).transpose()
     b = 0;m,n =shape(dataMatrix)
@@ -56,7 +57,7 @@ def smoSimple(dataMatIn,classLabels,C,toler,maxIter):
                     H = min(C,alphas[j] + alphas[i])
                 #如果L等于H，则不需要调整alphas，结束本次循环
                 if L==H:print("L=H");continue
-                #计算alphas[j]的最佳修改值，hh
+                #计算alphas[j]的最佳修改值
                 eta = 2.0 * dataMatrix[i,:]*dataMatrix[j,:].T - dataMatrix[i,:]*dataMatrix[i,:].T-\
                     dataMatrix[j,:]*dataMatrix[j,:].T
                 if eta >= 0:print("eta>=0");continue
@@ -77,4 +78,6 @@ def smoSimple(dataMatIn,classLabels,C,toler,maxIter):
         else:iter=0
         print("iteration number:%d"% iter)
     return b,alphas
+
+# let me try
 
