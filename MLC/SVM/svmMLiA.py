@@ -83,5 +83,5 @@ def smoSimple(dataMatIn,classLabels,C,toler,maxIter):
         print("iteration number:%d"% iter)
     return b,alphas
 
-# let me try
+# let me try it
 
