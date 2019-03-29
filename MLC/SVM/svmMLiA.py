@@ -45,7 +45,7 @@ def smoSimple(dataMatIn,classLabels,C,toler,maxIter):
                 #在当前alphas值下，计算第j条数据对应y值
                 fXj = float(multiply(alphas,labelMat).T*(dataMatrix*dataMatrix[j,:].T))+b
                 #比较计算值和当前值的误差
-                Ej = fXi -float(labelMat[j])
+                Ej = fXj -float(labelMat[j])
                 #根据python引用传递的规则，需要重新分配内存保存旧的alphas，从而实现比较新旧alphas的目的
                 alphasIold = alphas[i].copy(); alphasJold = alphas[j].copy();
                 #根据y值是否相等，分别计算不同边界值L，H，用于将alphas调整至0至C之间
@@ -61,15 +61,19 @@ def smoSimple(dataMatIn,classLabels,C,toler,maxIter):
                 eta = 2.0 * dataMatrix[i,:]*dataMatrix[j,:].T - dataMatrix[i,:]*dataMatrix[i,:].T-\
                     dataMatrix[j,:]*dataMatrix[j,:].T
                 if eta >= 0:print("eta>=0");continue
-                alphas[i] -= labelMat[j]*(Ei - Ej)/eta
+                #在eta<0的时候，对计算新的alphas值
+                alphas[j] -= labelMat[j]*(Ei - Ej)/eta
+                #使用chipAlpha对alphas[j]进行修正，确保其在区间[L,H]
                 alphas[j] = clipAlpha(alphas[j],H,L)
                 if (abs(alphas[j]-alphasJold)<0.00001):print("j not moving enough");continue
+                #当alpha[j]发生足够大变化时，同时改变alphas[i]，但是改变的方向相反
                 alphas[i] += labelMat[j]*labelMat[i]*(alphasJold-alphas[j])
+                #分别计算不同alphas对应的b值
                 b1 = b - Ei -labelMat[i]*(alphas[i]-alphasIold)*dataMatrix[i,:]*dataMatrix[i,:].T-\
                 labelMat[j]*(alphas[j]-alphasIold)*dataMatrix[i,:]*dataMatrix[j,:].T
                 b2 = b- Ej - labelMat[i]*(alphas[i]-alphasIold)*dataMatrix[i,:]*dataMatrix[j,:].T-\
                     labelMat[j]*(alphas[j]-alphasJold)*dataMatrix[j,:]*dataMatrix[j,:].T
-                if (0< alphas[i]) and (C > alphas[j]):b=b1
+                if (0< alphas[i]) and (C > alphas[i]):b=b1
                 elif (0 < alphas[j]) and (C>alphas[j]):b=b2
                 else:b=(b1+b2)/2.0
                 alphaPairsChanged +=1
