@@ -1,4 +1,3 @@
-
 from numpy import *
 
 def loadDataSet(fileName):
@@ -83,5 +82,106 @@ def smoSimple(dataMatIn,classLabels,C,toler,maxIter):
         print("iteration number:%d"% iter)
     return b,alphas
 
-# let me try it
+# full version of SMO
+#构造对象，保存重要的参数
+class optStruct:
+    def __init__(self,dataMatIn,classLabels,C,toler):
+        self.X = dataMatIn
+        self.labelMat = classLabels
+        self.C = C
+        self.tol = toler
+        self.m = shape(dataMatIn)[0]
+        self.alphas = mat(zeros((self.m,1)))
+        self.b = 0
+        #缓存误差
+        self.eCache = mat(zeros((self.m,2)))
+
+#计算误差
+def calcEk(oS,k):
+    fXk = float(multiply(oS.alphas,oS.labelMat).T*(oS.X*oS.X[k,:].T)) + os.b
+    Ek = fXk -float(oS.labelMat[k])
+    return Ek
+
+#根据下标i和误差Ei来计算第二个alphas的值，用来保证每次优化中可以获得最大的步长
+def selectJ(i,oS,Ei):
+    maxK = -1;maxDeltaE = 0;Ej = 0
+    oS.eCache[i] = [1,Ei]
+    validEcacheList = nonzero(oS.eCache[:,0].A)[0]
+    if (len(validEcacheList))>1:
+        for k in validEcacheList:
+            if k==i:continue
+            Ek = calcEk(oS,k)
+            deltaE = abs(Ei-Ek)
+            if (deltaE>maxDeltaE):
+                maxK = k;maxDeltaE = deltaE;Ej=Ek
+        return maxK,Ej
+    else:
+        j = selectJrand(i,oS.m)
+        Ej = calcEk(oS,j)
+    return j,Ej
+
+#更新误差值到eCache中
+def updateEk(oS,k):
+    Ek = calcEk(oS,k)
+    oS.eCache[k]=[1,Ek]
+
+def innerL(i,oS):
+    Ei = calcEk(oS,i)
+    if ((oS.labelMat[i]*Ei < -oS.tol) and (oS.alphas[i] < os.C)) or \ 
+        ((oS.labelMat[i]*Ei > oS.tol) and (oS.alphas[i] >0)):
+        j,Ej = selectJ(i,oS,Ei)
+        alphasIold = oS.alphas[i].copy();alphasJold = oS.alphas[j].copy();
+        if(oS.labelMat[i] != oS.labelMat)
+
+
+
+
+    pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
