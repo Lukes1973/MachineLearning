@@ -127,16 +127,27 @@ def updateEk(oS,k):
 
 def innerL(i,oS):
     Ei = calcEk(oS,i)
-    if ((oS.labelMat[i]*Ei < -oS.tol) and (oS.alphas[i] < os.C)) or \ 
-        ((oS.labelMat[i]*Ei > oS.tol) and (oS.alphas[i] >0)):
+    if ((oS.labelMat[i]*Ei < -oS.tol) and (oS.alphas[i] < os.C)) or \
+    ((oS.labelMat[i]*Ei > oS.tol) and (oS.alphas[i] >0)):
         j,Ej = selectJ(i,oS,Ei)
         alphasIold = oS.alphas[i].copy();alphasJold = oS.alphas[j].copy();
-        if(oS.labelMat[i] != oS.labelMat)
+        if(oS.labelMat[i] != oS.labelMat[j]):
+            L = max(0,oS.alphas[j] - oS.alphas[i])
+            H = min(os.C,oS.C + oS.alphas[j] - oS.alphas[i])
+        else:
+            L = max(0,oS.alphas[j] + oS.alphas[i] - oS.C)
+            H = min(oS.C,oS.alphas[j] + oS.alphas[i])
+        if L==H: print("L==H");return 0
 
 
 
 
-    pass
+
+
+
+        
+
+
 
 
 
