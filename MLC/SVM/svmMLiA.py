@@ -98,7 +98,7 @@ class optStruct:
 
 #计算误差
 def calcEk(oS,k):
-    fXk = float(multiply(oS.alphas,oS.labelMat).T*(oS.X*oS.X[k,:].T)) + os.b
+    fXk = float(multiply(oS.alphas,oS.labelMat).T*(oS.X*oS.X[k,:].T)) + oS.b
     Ek = fXk -float(oS.labelMat[k])
     return Ek
 
@@ -125,24 +125,67 @@ def updateEk(oS,k):
     Ek = calcEk(oS,k)
     oS.eCache[k]=[1,Ek]
 
+#内部循环函数
 def innerL(i,oS):
     Ei = calcEk(oS,i)
-    if ((oS.labelMat[i]*Ei < -oS.tol) and (oS.alphas[i] < os.C)) or \
+    if ((oS.labelMat[i]*Ei < -oS.tol) and (oS.alphas[i] < oS.C)) or \
     ((oS.labelMat[i]*Ei > oS.tol) and (oS.alphas[i] >0)):
         j,Ej = selectJ(i,oS,Ei)
         alphasIold = oS.alphas[i].copy();alphasJold = oS.alphas[j].copy();
         if(oS.labelMat[i] != oS.labelMat[j]):
             L = max(0,oS.alphas[j] - oS.alphas[i])
-            H = min(os.C,oS.C + oS.alphas[j] - oS.alphas[i])
+            H = min(oS.C,oS.C + oS.alphas[j] - oS.alphas[i])
         else:
             L = max(0,oS.alphas[j] + oS.alphas[i] - oS.C)
             H = min(oS.C,oS.alphas[j] + oS.alphas[i])
         if L==H: print("L==H");return 0
+        eta = 2.0 * oS.X[i,:]*oS.X[j,:].T - oS.X[i,:]*oS.X[i,:].T -\
+        oS.X[i,:]*oS.X[j,:].T
+        if eta >= 0:print("eta>=0");return 0
+        oS.alphas[j]-=oS.labelMat[j]*(Ei-Ej)/eta
+        oS.alphas[j] = clipAlpha(oS.alphas[j],H,L)
+        updateEk(oS,j)
+        if (abs(oS.alphas[j]-alphasJold)<0.00001):
+            print("j not moving enough");return 0
+        oS.alphas[i] += oS.labelMat[j]*oS.labelMat[i]*\
+        (alphasJold-oS.alphas[j])
+        updateEk(oS,i)
+        b1 = oS.b - Ei - oS.labelMat[i]*(oS.alphas[i]-alphasIold)*\
+        oS.X[i,:]*oS.X[i,:].T - oS.labelMat[j]*\
+        (oS.alphas[j]-alphasJold)*oS.X[i,:]*oS.X[j,:].T
+        b2 = oS.b - Ej - oS.labelMat[i]*(oS.alphas[i]-alphasIold)*\
+        oS.X[i,:]*oS.X[j,:].T - oS.labelMat[j]*\
+        (oS.alphas[j]-alphasJold)*oS.X[j,:]*oS.X[j,:].T
+        if (0<oS.alphas[i]) and (oS.C > oS.alphas[i]):oS.b = b1
+        elif (0<oS.alphas[j]) and (oS.C > oS.alphas[j]):oS.b = b2
+        else:oS.b = (b1+b2)/2.0
+        return 1
+    else:return 0
 
-
-
-
-
+#外部循环函数
+def smoP(dataMatIn,classLabels,C,toler,maxIter,kTup=('lin',0)):
+    oS = optStruct(mat(dataMatIn),mat(classLabels).transpose(),C,toler)
+    iter = 0
+    entireSet = True;alphaPairsChanged = 0
+    while (iter < maxIter) and ((alphaPairsChanged > 0) or (entireSet)):
+        alphaPairsChanged = 0
+        if entireSet:
+            for i in range(oS.m):
+                alphaPairsChanged += innerL(i,oS)
+                print("fullSet,iter:%d i:%d,pairs changed %d"%\
+                (iter,i,alphaPairsChanged))
+            iter +=1
+        else:
+            nonBoundIs = nonzero((oS.alphas.A>0)*(oS.alphas.A<C))[0]
+            for i in nonBoundIs:
+                alphaPairsChanged += innerL(i,oS)
+                print("non-bound,iter:%d i:%d,pairs changed %d"%\
+                (iter,i,alphaPairsChanged))
+            iter +=1
+        if entireSet:entireSet = False
+        elif (alphaPairsChanged==0):entireSet = True
+        print("iteration number:%d"%iter)
+    return oS.b,oS.alphas
 
 
 
