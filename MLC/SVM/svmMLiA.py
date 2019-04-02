@@ -192,11 +192,14 @@ def smoP(dataMatIn,classLabels,C,toler,maxIter,kTup=('lin',0)):
 
 
 
+<<<<<<< HEAD
+=======
 
 
         
 
 
+>>>>>>> 0a8a4c9a8ea45d0cfde102df74654416969e4b1f
 
 
 
