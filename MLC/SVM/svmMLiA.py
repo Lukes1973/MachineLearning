@@ -83,6 +83,7 @@ def smoSimple(dataMatIn,classLabels,C,toler,maxIter):
     return b,alphas
 
 # full version of SMO
+
 #构造对象，保存重要的参数
 class optStruct:
     def __init__(self,dataMatIn,classLabels,C,toler):
