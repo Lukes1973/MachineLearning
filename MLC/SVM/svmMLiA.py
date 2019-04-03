@@ -186,7 +186,7 @@ def innerL(i,oS):
         #当alpha[j]发生足够大变化时，同时改变alphas[i]，但是改变的方向相反
         oS.alphas[i] += oS.labelMat[j]*oS.labelMat[i]*\
         (alphasJold-oS.alphas[j])
-         #在更新alphas[i]之后，更新误差缓存值
+        #在更新alphas[i]之后，更新误差缓存值
         updateEk(oS,i)
         b1 = oS.b - Ei - oS.labelMat[i]*(oS.alphas[i]-alphasIold)*\
         oS.X[i,:]*oS.X[i,:].T - oS.labelMat[j]*\
