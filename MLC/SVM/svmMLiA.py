@@ -68,8 +68,10 @@ def smoSimple(dataMatIn,classLabels,C,toler,maxIter):
                 #当alpha[j]发生足够大变化时，同时改变alphas[i]，但是改变的方向相反
                 alphas[i] += labelMat[j]*labelMat[i]*(alphasJold-alphas[j])
                 #分别计算不同alphas对应的b值
+                #根据Ei和oS.X[i,:]计算b1
                 b1 = b - Ei -labelMat[i]*(alphas[i]-alphasIold)*dataMatrix[i,:]*dataMatrix[i,:].T-\
                 labelMat[j]*(alphas[j]-alphasIold)*dataMatrix[i,:]*dataMatrix[j,:].T
+                #根据Ej和oS.X[j,:]计算b1
                 b2 = b- Ej - labelMat[i]*(alphas[i]-alphasIold)*dataMatrix[i,:]*dataMatrix[j,:].T-\
                     labelMat[j]*(alphas[j]-alphasJold)*dataMatrix[j,:]*dataMatrix[j,:].T
                 if (0< alphas[i]) and (C > alphas[i]):b=b1
@@ -149,7 +151,7 @@ def updateEk(oS,k):
     #更新误差值，标记有效性
     oS.eCache[k]=[1,Ek]
 
-#内部循环函数
+#内部循环函数，返回为0或者1
 def innerL(i,oS):
     #计算误差值
     Ei = calcEk(oS,i)
@@ -188,12 +190,15 @@ def innerL(i,oS):
         (alphasJold-oS.alphas[j])
         #在更新alphas[i]之后，更新误差缓存值
         updateEk(oS,i)
+        #根据Ei和oS.X[i,:]计算b1
         b1 = oS.b - Ei - oS.labelMat[i]*(oS.alphas[i]-alphasIold)*\
         oS.X[i,:]*oS.X[i,:].T - oS.labelMat[j]*\
         (oS.alphas[j]-alphasJold)*oS.X[i,:]*oS.X[j,:].T
+        #根据Ej和oS.X[j,:]计算b1
         b2 = oS.b - Ej - oS.labelMat[i]*(oS.alphas[i]-alphasIold)*\
         oS.X[i,:]*oS.X[j,:].T - oS.labelMat[j]*\
         (oS.alphas[j]-alphasJold)*oS.X[j,:]*oS.X[j,:].T
+        #判断不同情形下，oS.b的取值
         if (0<oS.alphas[i]) and (oS.C > oS.alphas[i]):oS.b = b1
         elif (0<oS.alphas[j]) and (oS.C > oS.alphas[j]):oS.b = b2
         else:oS.b = (b1+b2)/2.0
@@ -202,13 +207,19 @@ def innerL(i,oS):
 
 #外部循环函数
 def smoP(dataMatIn,classLabels,C,toler,maxIter,kTup=('lin',0)):
+    #调用optStruct,初始化必要的参数
     oS = optStruct(mat(dataMatIn),mat(classLabels).transpose(),C,toler)
+    #记录迭代次数
     iter = 0
+    #设置entireSet和记录alpha改变的次数
     entireSet = True;alphaPairsChanged = 0
+    #构造循环执行的条件，当小于迭代次数并且alphas改变次数大于0，或者entireSet=True
     while (iter < maxIter) and ((alphaPairsChanged > 0) or (entireSet)):
         alphaPairsChanged = 0
         if entireSet:
+            #遍历每一行数据
             for i in range(oS.m):
+                #调用innerL函数，计算最优的alphas[j]，同时更新alphas[i]，计算当前的b值
                 alphaPairsChanged += innerL(i,oS)
                 print("fullSet,iter:%d i:%d,pairs changed %d"%\
                 (iter,i,alphaPairsChanged))
