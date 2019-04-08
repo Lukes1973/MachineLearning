@@ -70,7 +70,7 @@ def smoSimple(dataMatIn,classLabels,C,toler,maxIter):
                 #分别计算不同alphas对应的b值
                 #根据Ei和oS.X[i,:]计算b1
                 b1 = b - Ei -labelMat[i]*(alphas[i]-alphasIold)*dataMatrix[i,:]*dataMatrix[i,:].T-\
-                labelMat[j]*(alphas[j]-alphasIold)*dataMatrix[i,:]*dataMatrix[j,:].T
+                labelMat[j]*(alphas[j]-alphasJold)*dataMatrix[i,:]*dataMatrix[j,:].T
                 #根据Ej和oS.X[j,:]计算b1
                 b2 = b- Ej - labelMat[i]*(alphas[i]-alphasIold)*dataMatrix[i,:]*dataMatrix[j,:].T-\
                     labelMat[j]*(alphas[j]-alphasJold)*dataMatrix[j,:]*dataMatrix[j,:].T
@@ -84,7 +84,7 @@ def smoSimple(dataMatIn,classLabels,C,toler,maxIter):
         print("iteration number:%d"% iter)
     return b,alphas
 
-# full version of SMO
+# full version of SMO without kernal
 
 #构造对象，保存重要的参数
 class optStruct:
@@ -221,11 +221,15 @@ def smoP(dataMatIn,classLabels,C,toler,maxIter,kTup=('lin',0)):
             for i in range(oS.m):
                 #调用innerL函数，计算最优的alphas[j]，同时更新alphas[i]，计算当前的b值
                 alphaPairsChanged += innerL(i,oS)
+                #记录alphas改变的次数
                 print("fullSet,iter:%d i:%d,pairs changed %d"%\
                 (iter,i,alphaPairsChanged))
+            #记录遍历所有数据集的次数
             iter +=1
         else:
+            #遍历一次之后,alphas就会有改变，不全为零，取出不全为零的点
             nonBoundIs = nonzero((oS.alphas.A>0)*(oS.alphas.A<C))[0]
+            #遍历不为零对应所在行数据
             for i in nonBoundIs:
                 alphaPairsChanged += innerL(i,oS)
                 print("non-bound,iter:%d i:%d,pairs changed %d"%\
@@ -235,52 +239,136 @@ def smoP(dataMatIn,classLabels,C,toler,maxIter,kTup=('lin',0)):
         elif (alphaPairsChanged==0):entireSet = True
         print("iteration number:%d"%iter)
     return oS.b,oS.alphas
-
+#计算w参数
 def calcWs(alphas,dataArr,classLabels):
     X =mat(dataArr);labelMat = mat(classLabels).transpose()
     m,n = shape(X)
     w = zeros((n,1))
     for i in range(m):
         w += multiply(alphas[i]*labelMat[i],X[i,:].T)
-        for i in range(:
-            pass
+    return w
 
+# kernel version of smo
 
+def kernelTrans(X,A,kTup):
+    m,n = shape(X)
+    K = mat(zeros((m,1)))
+    if kTup[0]=='lin':K = X*A.T
+    elif kTup[0]=='rbf':
+        for j in range(m):
+            deltaRow = X[j,:] - A
+            K[j] = deltaRow*deltaRow.T
+        K = exp(K/(-1*kTup[1]**2))
+    else:raise NameError('BEIJING We have a Problem --\
+        That kernel is not recognized')
+    return K
 
+# new opt Struct
+class optStructk:
+    def __init__(self,dataMatIn,classLabels,C,toler,kTup):
+        #保存训练数据集
+        self.X = dataMatIn
+        #保存数据标签类别
+        self.labelMat = classLabels
+        #设置松弛变量C，用来允许一定程度上的错误分类
+        self.C = C
+        #设置每一次长度
+        self.tol = toler
+        #获取数据集的函数
+        self.m = shape(dataMatIn)[0]
+        #构造一个列向量alphas
+        self.alphas = mat(zeros((self.m,1)))
+        #初始化b值
+        self.b = 0
+        #缓存误差，包含两列，第一列是标记误差是否有效，第二列保存误差值
+        self.eCache = mat(zeros((self.m,2)))
+        self.K = mat(zeros((self.m,self.m)))
+        for i in range(self.m):
+            self.K[:,i] = kernelTrans(self.X,self.X[i,:],kTup)
 
+#kernel version innerL
 
+def innerLk(i,oS):
+    #计算误差值
+    Ei = calcEk(oS,i)
+    #根据KTT条件，判断是否满足需要优化的条件，误差超过设置的误差值极限值tol时，选择新的j
+    if ((oS.labelMat[i]*Ei < -oS.tol) and (oS.alphas[i] < oS.C)) or \
+        ((oS.labelMat[i]*Ei > oS.tol) and (oS.alphas[i] >0)):
+        #依据误差最大原则和选择最大步长原则，确定新的j和相对应的误差值
+        j,Ej = selectJ(i,oS,Ei)
+        #复制当前的alphas[i]和alphas[j]值，确保不会因为参数传递而发生变化
+        alphasIold = oS.alphas[i].copy();alphasJold = oS.alphas[j].copy();
+        #根据y值是否相等，分别计算不同边界值L，H，用于将alphas调整至0至C之间
+        if(oS.labelMat[i] != oS.labelMat[j]):
+            L = max(0,oS.alphas[j] - oS.alphas[i])
+            H = min(oS.C,oS.C + oS.alphas[j] - oS.alphas[i])
+        else:
+            L = max(0,oS.alphas[j] + oS.alphas[i] - oS.C)
+            H = min(oS.C,oS.alphas[j] + oS.alphas[i])
+        #如果L等于H，则不需要调整alphas，返回0
+        if L==H: print("L==H");return 0
+        #计算alphas[j]的最佳修改值
+        eta = 2.0 * oS.K[i,j] - oS.K[i,i] - oS.K[j,j]
+        #eta>=0，暂不优化j，返回0
+        if eta >= 0:print("eta>=0");return 0
+        #在eta<0的时候，对计算新的alphas值
+        oS.alphas[j]-=oS.labelMat[j]*(Ei-Ej)/eta
+        #使用chipAlpha对alphas[j]进行修正，确保其在区间[L,H]
+        oS.alphas[j] = clipAlpha(oS.alphas[j],H,L)
+        #在更新alphas[j]之后，更新误差缓存值
+        updateEk(oS,j)
+        #比较新的alphas[j]和alphasold,如果变化很小，返回0
+        if (abs(oS.alphas[j]-alphasJold)<0.00001):
+            print("j not moving enough");return 0
+        #当alpha[j]发生足够大变化时，同时改变alphas[i]，但是改变的方向相反
+        oS.alphas[i] += oS.labelMat[j]*oS.labelMat[i]*\
+        (alphasJold-oS.alphas[j])
+        #在更新alphas[i]之后，更新误差缓存值
+        updateEk(oS,i)
+        #根据Ei和oS.X[i,:]计算b1
+        b1 = oS.b - Ei - oS.labelMat[i]*(oS.alphas[i]-alphasIold)*oS.K[i,i]\
+         - oS.labelMat[j]*(oS.alphas[j]-alphasJold)*oS.K[i,j]
+        #根据Ej和oS.X[j,:]计算b1
+        b2 = oS.b - Ej - oS.labelMat[i]*(oS.alphas[i]-alphasIold)*oS.K[i,j]\
+         - oS.labelMat[j]*(oS.alphas[j]-alphasJold)*oS.K[j,j]
+        #判断不同情形下，oS.b的取值
+        if (0<oS.alphas[i]) and (oS.C > oS.alphas[i]):oS.b = b1
+        elif (0<oS.alphas[j]) and (oS.C > oS.alphas[j]):oS.b = b2
+        else:oS.b = (b1+b2)/2.0
+        return 1
+    else:return 0
 
+def calcEkk(oS,k):
+    #根据当前alphas值，计算第k条数据预测的classlabel值
+    fXk = float(multiply(oS.alphas,oS.labelMat).T*oS.K[:,k] + oS.b)
+    #计算误差值
+    Ek = fXk -float(oS.labelMat[k])
+    return Ek
 
-
-
-
-
-
-
-
-
-
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+def testRbf(k1=1.3):
+    dataArr,labelArr = loadDataSet('testSetRBF.txt')
+    b,alphas = smoP(dataArr,labelArr,200,0.0001,10000,('rbf',k1))
+    dataMat = mat(dataArr);labelMat = mat(labelArr).transpose()
+    svInd = nonzero(alphas.A>0)[0]
+    sVs = dataMat[svInd]
+    labelSV = labelMat[svIndx]
+    print ("there are %d Support Vectors"% shape(sVs)[0])
+    m,n = shape(dataMat)
+    errorCount = 0
+    for i in range(m):
+        kernelEval = kernelTrans(sVs,dataMat[i,:],('rbf',k1))
+        predict = kernel.T * multiply(labelSV,alphas[svInd]) + b
+        if sign(predict)!=sign(labelArr[i]):errorCount += 1
+    print ("the training error rate is:%f" % (float(errorCount)/m))
+    dataArr,labelArr = loadDataSet('testSetRBF2.txt')
+    errorCount = 0
+    dataMat = mat(dataArr);labelMat = mat(labelArr).transpose()
+    m,n = shape(dataMat)
+    for i in range(m):
+        kernelEval = kernelTrans(sVs,dataMat[i,:],('rbf',k1))
+        predict = kernelEval.T * multiply(labelSV,alphas[svInd])+b
+        if sign(predict)!= sign(labelArr[i]):errorCount+=1
+    print("the test error rate is :%f" %(float(errorCount)/m))
 
 
 
