@@ -22,6 +22,7 @@ def clipAlpha(aj,H,L):
         aj = L
     return aj
 
+#====================================================
 #simple version of SMO
 
 def smoSimple(dataMatIn,classLabels,C,toler,maxIter):
@@ -83,6 +84,8 @@ def smoSimple(dataMatIn,classLabels,C,toler,maxIter):
         else:iter=0
         print("iteration number:%d"% iter)
     return b,alphas
+
+#==============================================================================================
 
 # full version of SMO without kernal
 
@@ -263,6 +266,10 @@ def kernelTrans(X,A,kTup):
         That kernel is not recognized')
     return K
 
+#=================================================================================
+
+#kernel version innerL
+
 # new opt Struct
 class optStructk:
     def __init__(self,dataMatIn,classLabels,C,toler,kTup):
@@ -286,16 +293,57 @@ class optStructk:
         for i in range(self.m):
             self.K[:,i] = kernelTrans(self.X,self.X[i,:],kTup)
 
-#kernel version innerL
 
+def calcEkk(oS,k):
+    #根据当前alphas值，计算第k条数据预测的classlabel值
+    fXk = float(multiply(oS.alphas,oS.labelMat).T*oS.K[:,k] + oS.b)
+    #计算误差值
+    Ek = fXk -float(oS.labelMat[k])
+    return Ek
+def selectJk(i,oS,Ei):
+    #初始化参数
+    maxK = -1;maxDeltaE = 0;Ej = 0
+    #更新缓存误差值，并设置有效值为1
+    oS.eCache[i] = [1,Ei]
+    #获取有效的误差值
+    validEcacheList = nonzero(oS.eCache[:,0].A)[0]
+    #判断有效误差值的个数
+    if (len(validEcacheList))>1:
+        #遍历所有的有效误差值，选择误差值deltaE最大时对应的Ek,保证此次优化获得最大步长
+        for k in validEcacheList:
+            #跳过k=i的条件
+            if k==i:continue
+            #计算误差
+            Ek = calcEkk(oS,k)
+            #获取和Ei误差相对值
+            deltaE = abs(Ei-Ek)
+            #确保误差最大
+            if (deltaE>maxDeltaE):
+                maxK = k;maxDeltaE = deltaE;Ej=Ek
+        return maxK,Ej
+    #一般第一次，随机选择j
+    else:
+        #选择j，是的i<>j,同时j在区间（0，m)之间
+        j = selectJrand(i,oS.m)
+        #计算行数为j对应的误差
+        Ej = calcEkk(oS,j)
+    return j,Ej
+
+def updateEkk(oS,k):
+    #计算误差值
+    Ek = calcEkk(oS,k)
+    #更新误差值，标记有效性
+    oS.eCache[k]=[1,Ek]
+
+#kernel version innerLk
 def innerLk(i,oS):
     #计算误差值
-    Ei = calcEk(oS,i)
+    Ei = calcEkk(oS,i)
     #根据KTT条件，判断是否满足需要优化的条件，误差超过设置的误差值极限值tol时，选择新的j
     if ((oS.labelMat[i]*Ei < -oS.tol) and (oS.alphas[i] < oS.C)) or \
         ((oS.labelMat[i]*Ei > oS.tol) and (oS.alphas[i] >0)):
         #依据误差最大原则和选择最大步长原则，确定新的j和相对应的误差值
-        j,Ej = selectJ(i,oS,Ei)
+        j,Ej = selectJk(i,oS,Ei)
         #复制当前的alphas[i]和alphas[j]值，确保不会因为参数传递而发生变化
         alphasIold = oS.alphas[i].copy();alphasJold = oS.alphas[j].copy();
         #根据y值是否相等，分别计算不同边界值L，H，用于将alphas调整至0至C之间
@@ -316,7 +364,7 @@ def innerLk(i,oS):
         #使用chipAlpha对alphas[j]进行修正，确保其在区间[L,H]
         oS.alphas[j] = clipAlpha(oS.alphas[j],H,L)
         #在更新alphas[j]之后，更新误差缓存值
-        updateEk(oS,j)
+        updateEkk(oS,j)
         #比较新的alphas[j]和alphasold,如果变化很小，返回0
         if (abs(oS.alphas[j]-alphasJold)<0.00001):
             print("j not moving enough");return 0
@@ -324,7 +372,7 @@ def innerLk(i,oS):
         oS.alphas[i] += oS.labelMat[j]*oS.labelMat[i]*\
         (alphasJold-oS.alphas[j])
         #在更新alphas[i]之后，更新误差缓存值
-        updateEk(oS,i)
+        updateEkk(oS,i)
         #根据Ei和oS.X[i,:]计算b1
         b1 = oS.b - Ei - oS.labelMat[i]*(oS.alphas[i]-alphasIold)*oS.K[i,i]\
          - oS.labelMat[j]*(oS.alphas[j]-alphasJold)*oS.K[i,j]
@@ -338,26 +386,59 @@ def innerLk(i,oS):
         return 1
     else:return 0
 
-def calcEkk(oS,k):
-    #根据当前alphas值，计算第k条数据预测的classlabel值
-    fXk = float(multiply(oS.alphas,oS.labelMat).T*oS.K[:,k] + oS.b)
-    #计算误差值
-    Ek = fXk -float(oS.labelMat[k])
-    return Ek
+
+
+#外部循环函数
+def smoPk(dataMatIn,classLabels,C,toler,maxIter,kTup=('lin',0)):
+    #调用optStruct,初始化必要的参数
+    oS = optStructk(mat(dataMatIn),mat(classLabels).transpose(),C,toler,kTup)
+    #记录迭代次数
+    iter = 0
+    #设置entireSet和记录alpha改变的次数
+    entireSet = True;alphaPairsChanged = 0
+    #构造循环执行的条件，当小于迭代次数并且alphas改变次数大于0，或者entireSet=True
+    while (iter < maxIter) and ((alphaPairsChanged > 0) or (entireSet)):
+        alphaPairsChanged = 0
+        if entireSet:
+            #遍历每一行数据
+            for i in range(oS.m):
+                #调用innerL函数，计算最优的alphas[j]，同时更新alphas[i]，计算当前的b值
+                alphaPairsChanged += innerLk(i,oS)
+                #记录alphas改变的次数
+                print("fullSet,iter:%d i:%d,pairs changed %d"%\
+                (iter,i,alphaPairsChanged))
+            #记录遍历所有数据集的次数
+            iter +=1
+        else:
+            #遍历一次之后,alphas就会有改变，不全为零，取出不全为零的点
+            nonBoundIs = nonzero((oS.alphas.A>0)*(oS.alphas.A<C))[0]
+            #遍历不为零对应所在行数据
+            for i in nonBoundIs:
+                alphaPairsChanged += innerLk(i,oS)
+                print("non-bound,iter:%d i:%d,pairs changed %d"%\
+                (iter,i,alphaPairsChanged))
+            iter +=1
+        if entireSet:entireSet = False
+        elif (alphaPairsChanged==0):entireSet = True
+        print("iteration number:%d"%iter)
+    return oS.b,oS.alphas
+
+
+
 
 def testRbf(k1=1.3):
     dataArr,labelArr = loadDataSet('testSetRBF.txt')
-    b,alphas = smoP(dataArr,labelArr,200,0.0001,10000,('rbf',k1))
+    b,alphas = smoPk(dataArr,labelArr,200,0.0001,10000,('rbf',k1))
     dataMat = mat(dataArr);labelMat = mat(labelArr).transpose()
     svInd = nonzero(alphas.A>0)[0]
     sVs = dataMat[svInd]
-    labelSV = labelMat[svIndx]
+    labelSV = labelMat[svInd]
     print ("there are %d Support Vectors"% shape(sVs)[0])
     m,n = shape(dataMat)
     errorCount = 0
     for i in range(m):
         kernelEval = kernelTrans(sVs,dataMat[i,:],('rbf',k1))
-        predict = kernel.T * multiply(labelSV,alphas[svInd]) + b
+        predict = kernelEval.T * multiply(labelSV,alphas[svInd]) + b
         if sign(predict)!=sign(labelArr[i]):errorCount += 1
     print ("the training error rate is:%f" % (float(errorCount)/m))
     dataArr,labelArr = loadDataSet('testSetRBF2.txt')
@@ -371,6 +452,6 @@ def testRbf(k1=1.3):
     print("the test error rate is :%f" %(float(errorCount)/m))
 
 
-
+#===========================================================================
 
 
