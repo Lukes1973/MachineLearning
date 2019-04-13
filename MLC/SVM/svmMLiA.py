@@ -251,7 +251,11 @@ def calcWs(alphas,dataArr,classLabels):
         w += multiply(alphas[i]*labelMat[i],X[i,:].T)
     return w
 
+
+
+#=================================================================================
 # kernel version of smo
+
 
 def kernelTrans(X,A,kTup):
     m,n = shape(X)
@@ -265,8 +269,6 @@ def kernelTrans(X,A,kTup):
     else:raise NameError('BEIJING We have a Problem --\
         That kernel is not recognized')
     return K
-
-#=================================================================================
 
 #kernel version innerL
 
@@ -300,6 +302,7 @@ def calcEkk(oS,k):
     #计算误差值
     Ek = fXk -float(oS.labelMat[k])
     return Ek
+
 def selectJk(i,oS,Ei):
     #初始化参数
     maxK = -1;maxDeltaE = 0;Ej = 0
@@ -425,23 +428,36 @@ def smoPk(dataMatIn,classLabels,C,toler,maxIter,kTup=('lin',0)):
 
 
 
-
+# 测试核函数
 def testRbf(k1=1.3):
+    #获取训练数据集
     dataArr,labelArr = loadDataSet('testSetRBF.txt')
+    #调用核函数版本的计算b，alphas
     b,alphas = smoPk(dataArr,labelArr,200,0.0001,10000,('rbf',k1))
+    #数据集矩阵化
     dataMat = mat(dataArr);labelMat = mat(labelArr).transpose()
+    #获取非零的alphas,用来确定支持向量
     svInd = nonzero(alphas.A>0)[0]
+    #获取非零alphas，对应的X
     sVs = dataMat[svInd]
+    #获取非零alphas,对应的Y
     labelSV = labelMat[svInd]
     print ("there are %d Support Vectors"% shape(sVs)[0])
     m,n = shape(dataMat)
     errorCount = 0
+    #遍历每一行数据
     for i in range(m):
+        #利用核函数转换
         kernelEval = kernelTrans(sVs,dataMat[i,:],('rbf',k1))
+        #获取预测值
         predict = kernelEval.T * multiply(labelSV,alphas[svInd]) + b
+        #判断是否预测正确
         if sign(predict)!=sign(labelArr[i]):errorCount += 1
+    #打印错误比例
     print ("the training error rate is:%f" % (float(errorCount)/m))
+    #获取训练集数据
     dataArr,labelArr = loadDataSet('testSetRBF2.txt')
+    #初始化错误数量
     errorCount = 0
     dataMat = mat(dataArr);labelMat = mat(labelArr).transpose()
     m,n = shape(dataMat)
@@ -455,7 +471,7 @@ def testRbf(k1=1.3):
 #===========================================================================
 
 #example of digit recognition
-
+#将32x32向量转换成1x1024二维列向量
 def img2vector(filename):
     returnVect = zeros((1,1024))
     fr = open(filename)
@@ -464,22 +480,33 @@ def img2vector(filename):
         for j in range(32):
             returnVect[0,32*i+j] = int(lineStr[j])
     return returnVect
-
+#读取文件
 def loadImages(dirName):
+    #调用文件查询库
     from os import listdir
     hwLabels = []
+    #查找所有文件
     trainingFileList = listdir(dirName)
+    #确定文件数量
     m = len(trainingFileList)
+    #构造mx1024矩阵
     trainingMat = zeros((m,1024))
+    #遍历每个文件，把每个文件转换成1x1024的列向量，然后保存在trainingMat。
     for i in range(m):
+        #获取文件的名称
         fileNameStr = trainingFileList[i]
+        #取文件的前缀
         fileStr = fileNameStr.split('.')[0]
+        #取—左边部门
         classNumStr = int(fileStr.split('_')[0])
+        #保存文件对应的标签值
         if classNumStr == 9: hwLabels.append(-1)
         else: hwLabels.append(1)
+        #转化为1x1024列向量后，添加至trainingMat
         trainingMat[i,:] = img2vector('%s/%s' % (dirName, fileNameStr))
     return trainingMat, hwLabels
 
+#测试文字识别数据集，同testRBF类似，读取数据方式略有不同
 def testDigits(kTup=('rbf',10)):
     dataArr,labelArr = loadImages('trainingDigits')
     b,alphas = smoPk(dataArr,labelArr,200,0.0001,10000,kTup)
