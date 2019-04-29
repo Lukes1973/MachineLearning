@@ -45,22 +45,84 @@ def setOfWords2Vec(vocabList,inputSet):
 
 
 def trainNB0(trainMatrix,trainCategory):
+	#获取词向量的个数
 	numTrainDocs = len(trainMatrix)
+	#获取构造每个词向量词典词数
 	numWords = len(trainMatrix[0])
+	#计算归类为1的概率
 	pAbusive = sum(trainCategory)/float(numTrainDocs)
+	#构造零向量
 	p0Num = zeros(numWords);p1Num = zeros(numWords)
+	#初始化词典中每个词向量累加总数
 	p0Denom = 0.0;p1Denom = 0.0
+	#遍历每一条词向量
 	for i in range(numTrainDocs):
+        #判断对应的类别
 		if trainCategory[i] == 1:
+			#如果类别为1，对应向量自相加并保存在p1Num
 			p1Num += trainMatrix[i]
+			#累计总数，便于后续计算条件概率
 			p1Denom += sum(trainMatrix[i])
 		else:
+			#如果类别为0，对应向量自相加并保存在p0Num
 			p0Num += trainMatrix[i]
 			p0Denom += sum(trainMatrix[i])
+	#分别计算对应类别下的条件概率
 	p1Vect = p1Num/p1Denom
 	p0Vect = p0Num/p0Denom
 	return p0Vect,p1Vect,pAbusive
-	pass
+
+# Modify Version of TrainNB0
+
+def trainNB0M(trainMatrix,trainCategory):
+	#获取词向量的个数
+	numTrainDocs = len(trainMatrix)
+	#获取构造每个词向量词典词数
+	numWords = len(trainMatrix[0])
+	#计算归类为1的概率
+	pAbusive = sum(trainCategory)/float(numTrainDocs)
+	#构造零向量
+	p0Num = ones(numWords);p1Num = ones(numWords)
+	#初始化词典中每个词向量累加总数
+	p0Denom = 2.0;p1Denom = 2.0
+	#遍历每一条词向量
+	for i in range(numTrainDocs):
+        #判断对应的类别
+		if trainCategory[i] == 1:
+			#如果类别为1，对应向量自相加并保存在p1Num
+			p1Num += trainMatrix[i]
+			#累计总数，便于后续计算条件概率
+			p1Denom += sum(trainMatrix[i])
+		else:
+			#如果类别为0，对应向量自相加并保存在p0Num
+			p0Num += trainMatrix[i]
+			p0Denom += sum(trainMatrix[i])
+	#分别计算对应类别下的条件概率
+	p1Vect = log(p1Num/p1Denom)
+	p0Vect = log(p0Num/p0Denom)
+	return p0Vect,p1Vect,pAbusive
+
+def classifyNB(vec2Classify,p0Vect,p1Vect,pClass):
+	p1 = sum(vec2Classify*p1Vect) + log(pClass)
+	p0 = sum(vec2Classify*p0Vect) + log(1.0 - pClass)
+	if p1 > p0:
+		return 1
+	else:
+		return 0
+
+def testingNB():
+	lsitOPosts,listClasses = loadDataSet()
+	myVocabList = createVocabList(lsitOPosts)
+	trainMat = []
+	for postinDoc in lsitOPosts:
+		trainMat.append(setOfWords2Vec(myVocabList,postinDoc))
+		p0V,p1V,pAb = trainNB0M(array(trainMat),array(listClasses))
+		testEntry = ['love','my','dalmation']
+		thisDoc = array(setOfWords2Vec(myVocabList,testEntry))
+		print(testEntry,'classified as: ',classifyNB(thisDoc,p0V,p1V,pAb))
+		testEntry = ['stupid','garbage']
+		thisDoc = array(setOfWords2Vec(myVocabList,testEntry))
+		print(testEntry,'classified as: ',classifyNB(thisDoc,p0V,p1V,pAb))
 
 
 
