@@ -102,39 +102,86 @@ def trainNB0M(trainMatrix,trainCategory):
 	p0Vect = log(p0Num/p0Denom)
 	return p0Vect,p1Vect,pAbusive
 
+
 def classifyNB(vec2Classify,p0Vect,p1Vect,pClass):
+	#计算同一条对应在不同分类下的概率
 	p1 = sum(vec2Classify*p1Vect) + log(pClass)
 	p0 = sum(vec2Classify*p0Vect) + log(1.0 - pClass)
+	#比较不同类别下对应概率，根据概率大小给出结论
 	if p1 > p0:
 		return 1
 	else:
 		return 0
 
 def testingNB():
+	#获取训练词典数据集
 	lsitOPosts,listClasses = loadDataSet()
+	#构造训练词典数据集字典
 	myVocabList = createVocabList(lsitOPosts)
+	#初始化训练集数据
 	trainMat = []
+	#获取每一条评论并转换成词向量
 	for postinDoc in lsitOPosts:
+		#添加词向量到训练集
 		trainMat.append(setOfWords2Vec(myVocabList,postinDoc))
-		p0V,p1V,pAb = trainNB0M(array(trainMat),array(listClasses))
-		testEntry = ['love','my','dalmation']
-		thisDoc = array(setOfWords2Vec(myVocabList,testEntry))
-		print(testEntry,'classified as: ',classifyNB(thisDoc,p0V,p1V,pAb))
-		testEntry = ['stupid','garbage']
-		thisDoc = array(setOfWords2Vec(myVocabList,testEntry))
-		print(testEntry,'classified as: ',classifyNB(thisDoc,p0V,p1V,pAb))
+	#计算属于侮辱性文档的概率PAb，以及两个类别的概率向量
+	p0V,p1V,pAb = trainNB0M(array(trainMat),array(listClasses))
+	#测试评论数据
+	testEntry = ['love','my','dalmation']
+	#转化为词向量
+	thisDoc = array(setOfWords2Vec(myVocabList,testEntry))
+	#通过函数classifyNB，判别该评论是否为侮辱性
+	print(testEntry,'classified as: ',classifyNB(thisDoc,p0V,p1V,pAb))
+	#测试评论
+	testEntry = ['stupid','garbage']
+	thisDoc = array(setOfWords2Vec(myVocabList,testEntry))
+	print(testEntry,'classified as: ',classifyNB(thisDoc,p0V,p1V,pAb))
+
+#词袋模型
+def bagOfWords2VecMN(vocabList,inputSet):
+	returnVec = [0]*len(vocabList)
+	for word in inputSet:
+		if word in vocabList:
+			returnVec[vocabList.index(word)] += 1
+	return returnVec
+
+#示例：过滤垃圾邮件
 
 
+def textParse(bigString):
+	import re
+	regEx = re.compile('\\W*')
+	listOfTokens = regEx.split(bigString)
+	return [tok.lower() for tok in listOfTokens if len(tok) > 0]
 
-
-
-
-
-
-
-
-
-
+def spamTest():
+	docList = [];classList = []; fullText = []
+	for i in range(1,26):
+		wordList = textParse(open('email/spam/%d.txt' % i).read())
+		docList.append(wordList)
+		fullText.extend(wordList)
+		classList.append(1)
+		print(i)
+		wordList = textParse(open('email/ham/%d.txt' % i).read())
+		docList.append(wordList)
+		fullText.extend(wordList)
+		classList.append(0)
+	vocabList = createVocabList(docList)
+	trainingSet = range(50);testSet = []
+	for i in range(10):
+		randIndex = int(random.uniform(0,len(trainingSet)))
+		testSet.append(trainingSet[randIndex])
+		del(trainingSet[randIndex])
+	trainMat = [];trainClasses = []
+	for docIndex in trainingSet:
+		trainMat.append(classList[docIndex])
+	p0V,p1V,pSpam = trainNB0M(array(trainMat),array(trainClasses))
+	errorCount = 0
+	for docIndex in testSet:
+		wordVector = setOfWords2Vec(vocabList,docList[docIndex])
+		if classifyNB(array(wordVector),p0V,p1V,pSpam)!=classList[docIndex]:
+			errorCount += 1
+	print('the error rate is: ',float(errorCount)/len(testSet))
 
 
 
