@@ -147,40 +147,61 @@ def bagOfWords2VecMN(vocabList,inputSet):
 
 #示例：过滤垃圾邮件
 
-
+#使用非数字，字母作为分割符号，划分单词
 def textParse(bigString):
+	#引入正则表达式
 	import re
+	#非数字，非字母正则表达式
 	regEx = re.compile('\\W*')
+	#分割字段
 	listOfTokens = regEx.split(bigString)
+	#返回分割字段
 	return [tok.lower() for tok in listOfTokens if len(tok) > 0]
 
 def spamTest():
+	#初始化
 	docList = [];classList = []; fullText = []
+	#遍历所有文件
 	for i in range(1,26):
+		#切分字段
 		wordList = textParse(open('email/spam/%d.txt' % i).read())
 		docList.append(wordList)
 		fullText.extend(wordList)
 		classList.append(1)
-		print(i)
+		#print(i)
 		wordList = textParse(open('email/ham/%d.txt' % i).read())
 		docList.append(wordList)
 		fullText.extend(wordList)
 		classList.append(0)
+	#print(docList)
+	#构造全词数据字典
 	vocabList = createVocabList(docList)
-	trainingSet = range(50);testSet = []
+	#使用交叉验证机制，随机选择20%数据作为测试数据，80%作为训练数据，先确定指针
+	trainingSet = list(range(50));testSet = []
 	for i in range(10):
 		randIndex = int(random.uniform(0,len(trainingSet)))
 		testSet.append(trainingSet[randIndex])
 		del(trainingSet[randIndex])
+	#初始化训练数据，和对应的标签
 	trainMat = [];trainClasses = []
+	#根据随机选择的数据，选择对应的邮件，同时转换为词向量
 	for docIndex in trainingSet:
-		trainMat.append(classList[docIndex])
+		#添加对应词向量
+		trainMat.append(setOfWords2Vec(vocabList, docList[docIndex]))
+		#添加对应的标签
+		trainClasses.append(classList[docIndex])
+	#print(array(trainMat))
+	#计算属于欺诈邮件的概率pSpam，以及两个类别的概率向量
 	p0V,p1V,pSpam = trainNB0M(array(trainMat),array(trainClasses))
 	errorCount = 0
+	#通过测试集计算验证正确率
 	for docIndex in testSet:
+		#选择测试字段，然后转换为词向量
 		wordVector = setOfWords2Vec(vocabList,docList[docIndex])
+		#如果结果和实际不一致，则错误数加1
 		if classifyNB(array(wordVector),p0V,p1V,pSpam)!=classList[docIndex]:
 			errorCount += 1
+    #计算最后错误的比例
 	print('the error rate is: ',float(errorCount)/len(testSet))
 
 
