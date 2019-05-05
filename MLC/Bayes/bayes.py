@@ -152,7 +152,7 @@ def textParse(bigString):
 	#引入正则表达式
 	import re
 	#非数字，非字母正则表达式
-	regEx = re.compile('\\W*')
+	regEx = re.compile('\\W+')
 	#分割字段
 	listOfTokens = regEx.split(bigString)
 	#返回分割字段
@@ -168,7 +168,7 @@ def spamTest():
 		docList.append(wordList)
 		fullText.extend(wordList)
 		classList.append(1)
-		#print(i)
+		print(i)
 		wordList = textParse(open('email/ham/%d.txt' % i).read())
 		docList.append(wordList)
 		fullText.extend(wordList)
@@ -203,6 +203,41 @@ def spamTest():
 			errorCount += 1
     #计算最后错误的比例
 	print('the error rate is: ',float(errorCount)/len(testSet))
+
+#示例：使用朴素贝叶斯反应个人广告倾向
+
+def calcMostFreq(vocabList,fullText):
+	import operator
+	freqDict = {}
+	for token in vocabList:
+		freqDict[token] = fullText.count(token)
+	sortedFreq = sorted(freqDict.iteritems(),key=operator.itemgetter(1),reverse=True)
+	return sortedFreq[:30]
+
+def localWords(feed1,feed0):
+	import feedparser
+	docList=[],classList=[],fullText=[]
+	minLen = min(len(feed1['entries']),len(feed0['entries']))
+	for i in range(minLen):
+		wordList = textParse(feed1['entries'][i]['summary'])
+		docList.append(wordList)
+		fullText.extend(wordList)
+		classList.append(1)
+		wordList = textParse(feed0['entries'][i]['summary'])
+		docList.append(wordList)
+		fullText.extend(wordList)
+		classList.append(0)
+	vocabList = createVocabList(docList)
+	top30Words = calcMostFreq(vocabList,fullText)
+	for pairW in top30Words:
+		if pairW[0] in vocabList:vocabList.remove(pairW[0])
+	trainingSet = list(range(2*minLen));testSet=[]
+	for i in range(20):
+		randIndex - int(random.uniform(0,len(trainingSet)))
+		
+
+
+
 
 
 
