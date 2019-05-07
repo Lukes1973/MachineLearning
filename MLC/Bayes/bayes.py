@@ -215,27 +215,53 @@ def calcMostFreq(vocabList,fullText):
 	return sortedFreq[:30]
 
 def localWords(feed1,feed0):
+	#导入插件库，用来获取内容
 	import feedparser
+	#初始化参数
 	docList=[],classList=[],fullText=[]
+	#取最小的
 	minLen = min(len(feed1['entries']),len(feed0['entries']))
 	for i in range(minLen):
+		#划分段落，获取词语
 		wordList = textParse(feed1['entries'][i]['summary'])
+		#添加至doclist
 		docList.append(wordList)
+		#补充至全词
 		fullText.extend(wordList)
+		#标记类别为1
 		classList.append(1)
 		wordList = textParse(feed0['entries'][i]['summary'])
 		docList.append(wordList)
 		fullText.extend(wordList)
 		classList.append(0)
+	#构造全词去重数据字典
 	vocabList = createVocabList(docList)
+    #获取出现频率最高的前30个词语
 	top30Words = calcMostFreq(vocabList,fullText)
+	#
 	for pairW in top30Words:
 		if pairW[0] in vocabList:vocabList.remove(pairW[0])
 	trainingSet = list(range(2*minLen));testSet=[]
+	#使用交叉验证机制，随机选择20%数据作为测试数据，80%作为训练数据，先确定指针
 	for i in range(20):
-		randIndex - int(random.uniform(0,len(trainingSet)))
-		
-
+		randIndex = int(random.uniform(0,len(trainingSet)))
+		testSet.append(trainingSet[randIndex])
+		del(trainingSet[randIndex])
+	#初始化训练数据，和对应的标签
+	trainMat=[];trainClasses=[]
+	##根据随机选择的数据，选择对应的邮件，利用词带模型转换为词向量
+	for docIndex in trainingSet:
+		trainMat.append(bagOfWords2VecMN(vocabList,docList[docIndex]))
+		trainClasses.append(classList[docIndex])
+	p0V,p1V,pSpam = trainNB0M(array(trainMat),array(trainClasses))		
+	errorCount = 0
+	#通过测试集计算验证正确率
+	for docIndex in testSet:
+		wordVector = bagOfWords2VecMN(vocabList,docList[docIndex])
+		if classifyNB(array(wordVector),p0V,p1V,pSpam) != classList[docIndex]:
+			errorCount += 1
+	print('the error rate is: ',float(errorCount)/len(testSet))
+	return vocabList,p0V,p1V
 
 
 
