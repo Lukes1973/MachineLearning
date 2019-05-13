@@ -238,7 +238,7 @@ def localWords(feed1,feed0):
 	vocabList = createVocabList(docList)
     #获取出现频率最高的前30个词语
 	top30Words = calcMostFreq(vocabList,fullText)
-	#
+	#去掉词典出现频率最高的30个词
 	for pairW in top30Words:
 		if pairW[0] in vocabList:vocabList.remove(pairW[0])
 	trainingSet = list(range(2*minLen));testSet=[]
@@ -264,7 +264,23 @@ def localWords(feed1,feed0):
 	return vocabList,p0V,p1V
 
 
-
+#displaying locally used words
+def getTopWords(ny,sf):
+	import operator
+	vocabList,p0V,p1V=localWords(ny,sf)
+	topNY=[];topSF=[]
+	for i in range(len(p0V)):
+		if p0V[i]>-6.0:topSF.append((vocabList[i],p0V[i]))
+		if p1V[i]>-6.0:topNY.append((vocabList[i],p1V[i]))
+	sortedSF = sorted(topSF,key=lambda pair:pair[1],reverse=True)
+	print ("SF**SF**SF**SF**SF**SF**SF**")
+	for item in sortedSF:
+		print(item[0])
+	sortedNY = sorted(topNY,key=lambda pair:pair[1],reverse=True)
+	print ("NY**NY**NY**NY**NY**NY**NY**")
+	for item in sortedNY:
+		print(item[0])
+	
 
 
 
